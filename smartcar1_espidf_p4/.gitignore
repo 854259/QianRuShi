@@ -1,0 +1,9 @@
+# ESP-IDF generated state
+/build*/
+/managed_components/
+/dependencies.lock
+/sdkconfig
+/sdkconfig.old
+
+# Editor-local state
+/.vscode/

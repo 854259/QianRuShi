@@ -1,0 +1,13 @@
+{
+  "idf.currentSetup": "D:\\ESP32\\.espressif\\v5.3.5\\esp-idf",
+  "clangd.path": "C:\\Espressif\\tools\\esp-clang\\16.0.1-fe4f10a809\\esp-clang\\bin\\clangd.exe",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=e:\\qianrushi\\ESP32_try\\build"
+  ],
+  "idf.openOcdConfigs": [
+    "board/esp32p4-builtin.cfg"
+  ],
+  "python-envs.defaultEnvManager": "ms-python.python:system"
+}
