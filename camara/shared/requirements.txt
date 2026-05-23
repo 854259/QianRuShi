@@ -1,0 +1,31 @@
+# ── 核心深度学习框架 ──────────────────────────────
+torch>=2.0.0
+torchvision>=0.15.0
+
+# ── ONNX 导出与推理 ───────────────────────────────
+onnx>=1.14.0
+onnxruntime>=1.15.0
+
+# ── INT8 量化 ─────────────────────────────────────
+# onnxruntime 已内置 quantization 模块，无需额外安装
+
+# ── 图像处理 ──────────────────────────────────────
+opencv-python>=4.7.0
+Pillow>=9.4.0
+
+# ── 数值计算 ──────────────────────────────────────
+numpy>=1.23.0
+scipy>=1.10.0
+
+# ── 配置与工具 ────────────────────────────────────
+PyYAML>=6.0
+tqdm>=4.64.0
+matplotlib>=3.6.0
+
+# ── 安装命令（Windows 无 GPU）─────────────────────
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# pip install onnx onnxruntime opencv-python PyYAML tqdm matplotlib
+#
+# 有 NVIDIA GPU（推荐，训练更快）:
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# pip install onnx onnxruntime-gpu opencv-python PyYAML tqdm matplotlib
