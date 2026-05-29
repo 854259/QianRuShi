@@ -82,15 +82,15 @@ static void robot_core_task(void *arg)
 
                     /* 6. 发送指令给底层串口驱动 */
                     write_all_positions(servo_cmd);
-                } else {
+                }
+             }
+            }else {
                     ESP_LOGW(TAG, "IK Failed: Target Unreachable or Singular");
                 }
         /* 严格控制刷新率：20ms (50Hz) */
         vTaskDelay(pdMS_TO_TICKS(20)); 
             }
         }
-    }
-}
 /* ============ 公共初始化接口 ============ */
 void robot_core_init(void)
 {
