@@ -15,7 +15,7 @@ static const float JOINT_DIR[5] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 #define MG996_MAX_PWM 2500
 
 /* * 映射比例推导：
- * 2000 个 PWM 单位 (2500 - 500) 对应 180度 (即 PI 弧度) 
+ * 2000 个 PWM 单位 (2500 - 500) 对应 180度 (即 PI 弧度)
  */
 #define POS_TO_RAD  (M_PI / 2000.0f)
 #define RAD_TO_POS  (2000.0f / M_PI)
@@ -45,7 +45,7 @@ int16_t kin_rad_to_pos(int idx, float rad)
     if (idx < 0 || idx > 4) return HOME_POS[0];
     /* 脉宽 = 中位1500 + (弧度 * 脉宽比例 * 正反向系数) */
     int32_t pos = HOME_POS[idx] + (int32_t)roundf(rad * RAD_TO_POS * JOINT_DIR[idx]);
-    
+
     /* 针对 MG996 的防撞钳位保护 */
     if (pos < MG996_MIN_PWM) pos = MG996_MIN_PWM;
     if (pos > MG996_MAX_PWM) pos = MG996_MAX_PWM;

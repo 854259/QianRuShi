@@ -1,4 +1,4 @@
-#include "speed_drive.hpp"
+﻿#include "speed_drive.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -12,6 +12,11 @@ namespace {
 constexpr char TAG[] = "smartcar_drive";
 constexpr ledc_mode_t MOTOR_SPEED_MODE = LEDC_LOW_SPEED_MODE;
 constexpr ledc_timer_t MOTOR_TIMER = LEDC_TIMER_0;
+
+uint64_t gpio_pin_mask(gpio_num_t gpio)
+{
+    return gpio == GPIO_NUM_NC ? 0ULL : (1ULL << static_cast<uint32_t>(gpio));
+}
 }
 
 SpeedDrive CarDrive;
@@ -66,28 +71,32 @@ void SpeedDrive::begin()
         ESP_ERROR_CHECK(ledc_channel_config(&channel_config));
     }
 
-    const gpio_config_t speed_sensor_config = {
-        .pin_bit_mask = 1ULL << SMARTCAR_SPEED_SENSOR_GPIO,
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_POSEDGE,
+    if (SMARTCAR_SPEED_SENSOR_GPIO != GPIO_NUM_NC) {
+        const gpio_config_t speed_sensor_config = {
+            .pin_bit_mask = gpio_pin_mask(SMARTCAR_SPEED_SENSOR_GPIO),
+            .mode = GPIO_MODE_INPUT,
+            .pull_up_en = GPIO_PULLUP_DISABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_POSEDGE,
 #if SOC_GPIO_SUPPORT_PIN_HYS_FILTER
-        .hys_ctrl_mode = GPIO_HYS_SOFT_DISABLE,
+            .hys_ctrl_mode = GPIO_HYS_SOFT_DISABLE,
 #endif
-    };
-    ESP_ERROR_CHECK(gpio_config(&speed_sensor_config));
+        };
+        ESP_ERROR_CHECK(gpio_config(&speed_sensor_config));
 
-    esp_err_t isr_result = gpio_install_isr_service(0);
-    if (isr_result != ESP_OK && isr_result != ESP_ERR_INVALID_STATE) {
-        ESP_ERROR_CHECK(isr_result);
+        esp_err_t isr_result = gpio_install_isr_service(0);
+        if (isr_result != ESP_OK && isr_result != ESP_ERR_INVALID_STATE) {
+            ESP_ERROR_CHECK(isr_result);
+        }
+        ESP_ERROR_CHECK(gpio_isr_handler_add(SMARTCAR_SPEED_SENSOR_GPIO, speed_sensor_isr, this));
+        ESP_LOGI(TAG, "motor PWM and speed sensor ready");
+    } else {
+        ESP_LOGI(TAG, "motor PWM ready; speed sensor disabled");
     }
-    ESP_ERROR_CHECK(gpio_isr_handler_add(SMARTCAR_SPEED_SENSOR_GPIO, speed_sensor_isr, this));
 
     pulse_count_ = 0;
     last_isr_us_ = 0;
     last_calc_ms_ = smartcar_millis();
-    ESP_LOGI(TAG, "motor PWM and speed sensor ready");
 }
 
 void SpeedDrive::set_motor_output(const MotorOutput &output, uint32_t duty)
@@ -127,6 +136,12 @@ void SpeedDrive::stop()
 
 void SpeedDrive::loop()
 {
+    if (SMARTCAR_SPEED_SENSOR_GPIO == GPIO_NUM_NC) {
+        current_speed_ = 0.0F;
+        smoothed_speed_ = 0.0F;
+        return;
+    }
+
     const uint32_t now = smartcar_millis();
     if (now - last_calc_ms_ < SMARTCAR_SPEED_CALC_INTERVAL_MS) {
         return;

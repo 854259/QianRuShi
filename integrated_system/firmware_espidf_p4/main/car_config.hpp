@@ -14,20 +14,23 @@ constexpr gpio_num_t SMARTCAR_MOTO_LR_B_GPIO = GPIO_NUM_20;
 constexpr gpio_num_t SMARTCAR_MOTO_RR_A_GPIO = GPIO_NUM_6;
 constexpr gpio_num_t SMARTCAR_MOTO_RR_B_GPIO = GPIO_NUM_5;
 
-constexpr gpio_num_t SMARTCAR_SPEED_SENSOR_GPIO = GPIO_NUM_36;
-constexpr gpio_num_t SMARTCAR_TRACE_GPIO[] = {
-    GPIO_NUM_4,
-    GPIO_NUM_3,
-    GPIO_NUM_2,
-    GPIO_NUM_32,
-    GPIO_NUM_33,
-};
+constexpr gpio_num_t SMARTCAR_SPEED_SENSOR_GPIO = GPIO_NUM_NC;
+constexpr gpio_num_t SMARTCAR_EDGE_LEFT_GPIO = GPIO_NUM_4;
+constexpr gpio_num_t SMARTCAR_EDGE_RIGHT_GPIO = GPIO_NUM_3;
+constexpr gpio_num_t SMARTCAR_VLT_ENABLE_GPIO = GPIO_NUM_NC;
+constexpr gpio_num_t SMARTCAR_SB_PLUS_GPIO = GPIO_NUM_NC;
 
 constexpr gpio_num_t SMARTCAR_SR04_TRIG_GPIO = GPIO_NUM_26;
 constexpr gpio_num_t SMARTCAR_SR04_ECHO_GPIO = GPIO_NUM_27;
 constexpr gpio_num_t SMARTCAR_SERVO_GPIO = GPIO_NUM_48;
-constexpr gpio_num_t SMARTCAR_FAN_GPIO = GPIO_NUM_53;
-constexpr gpio_num_t SMARTCAR_STATUS_LED_GPIO = GPIO_NUM_46;
+constexpr gpio_num_t SMARTCAR_FAN_GPIO = GPIO_NUM_NC;
+constexpr gpio_num_t SMARTCAR_STATUS_LED_GPIO = GPIO_NUM_NC;
+
+constexpr bool SMARTCAR_EDGE_ACTIVE_LOW = true;
+constexpr int SMARTCAR_EDGE_SPEED_BACK = 150;
+constexpr int SMARTCAR_EDGE_SPEED_TURN = 170;
+constexpr uint32_t SMARTCAR_EDGE_BACK_MS = 260;
+constexpr uint32_t SMARTCAR_EDGE_TURN_MS = 380;
 
 constexpr float SMARTCAR_CM_PER_PULSE = 0.4045F;
 constexpr float SMARTCAR_EMA_ALPHA = 0.3F;
@@ -38,12 +41,6 @@ constexpr uint32_t SMARTCAR_MIN_PULSE_FOR_SPEED = 2;
 constexpr uint32_t SMARTCAR_MOTOR_PWM_FREQ_HZ = 12000;
 constexpr ledc_timer_bit_t SMARTCAR_MOTOR_PWM_RESOLUTION = LEDC_TIMER_8_BIT;
 constexpr int SMARTCAR_MAX_PWM = 255;
-
-constexpr int SMARTCAR_TRACE_SPEED_FAST = 240;
-constexpr int SMARTCAR_TRACE_SPEED_MEDIUM = 200;
-constexpr int SMARTCAR_TRACE_SPEED_SLOW = 160;
-constexpr int SMARTCAR_TRACE_SPEED_TURN = 180;
-constexpr int SMARTCAR_TRACE_SPEED_REVERSE = 150;
 
 constexpr int SMARTCAR_AVOID_DISTANCE_EMERGENCY_CM = 20;
 constexpr int SMARTCAR_AVOID_DISTANCE_SLOW_CM = 35;

@@ -1,14 +1,14 @@
-﻿#include "robot_core.h"
+#include "robot_core.h"
 #include "servo.h"
 #include "kinematics.h"
-#include "vision_api.h"   /* 鍒氭墠鎴戜滑鍐欑殑淇＄鎺ュ彛 */
+#include "vision_api.h"   /* 刚才我们写的信箱接口 */
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
 static const char *TAG = "ROBOT_CORE";
-/* ============ 纭欢瀹夊叏锛氬叧鑺傞檺浣嶉厤缃?============
- * 杩欐槸闃叉鏈烘鑷傝嚜鏉€鐨勬渶鍚庝竴閬撻槻绾匡紝淇濈暀鍘熶唬鐮佺殑缁撴瀯
+/* ============ 硬件安全：关节限位配置 ============
+ * 这是防止机械臂自杀的最后一道防线，保留原代码的结构
  */
 typedef struct {
     uint8_t  id;
@@ -18,28 +18,28 @@ typedef struct {
 } joint_config_t;
 
 static const joint_config_t JOINTS[SERVO_NUM_JOINTS] = {
-    { .id = 1, .min_pos = 500, .max_pos = 2500, .home_pos = 1500 }, /* 搴曞骇 */
-    { .id = 2, .min_pos = 500, .max_pos = 2500, .home_pos = 1500 }, /* 鑲╅儴 */
-    { .id = 3, .min_pos = 500, .max_pos = 2500, .home_pos = 1500 }, /* 鑲橀儴 */
-    { .id = 4, .min_pos = 500,  .max_pos = 2500, .home_pos = 1500 }, /* 鑵曢儴淇话 */
-    { .id = 5, .min_pos = 500, .max_pos = 2500, .home_pos = 1500 }, /* 鑵曢儴缈昏浆 (涓嶅弬涓庡潗鏍? */
-    { .id = 6, .min_pos = 700, .max_pos = 2300, .home_pos = 1800 }, /* 澶圭埅/娓呮磥鍒?*/
+    { .id = 1, .min_pos = 500, .max_pos = 2500, .home_pos = 1500 }, /* 底座 */
+    { .id = 2, .min_pos = 500, .max_pos = 2500, .home_pos = 1500 }, /* 肩部 */
+    { .id = 3, .min_pos = 500, .max_pos = 2500, .home_pos = 1500 }, /* 肘部 */
+    { .id = 4, .min_pos = 500,  .max_pos = 2500, .home_pos = 1500 }, /* 腕部俯仰 */
+    { .id = 5, .min_pos = 500, .max_pos = 2500, .home_pos = 1500 }, /* 腕部翻转 (不参与坐标) */
+    { .id = 6, .min_pos = 700, .max_pos = 2300, .home_pos = 1800 }, /* 夹爪/清洁刷 */
 };
-/* 瀹夊叏閽充綅鍑芥暟 */
+/* 安全钳位函数 */
 static int16_t clamp(int16_t val, int16_t lo, int16_t hi) {
     if (val < lo) return lo;
     if (val > hi) return hi;
     return val;
 }
-/* 涓€娆℃€у悜搴曞眰鍙戦€?涓埖鏈虹殑鏁版嵁 */
+/* 一次性向底层发送6个舵机的数据 */
 static void write_all_positions(const int16_t pos[SERVO_NUM_JOINTS]) {
     for (int i = 0; i < SERVO_NUM_JOINTS; i++) {
         int16_t clamped = clamp(pos[i], JOINTS[i].min_pos, JOINTS[i].max_pos);
-        /* 閫熷害璁句负 500 (涓瓑閫熷害)锛岄槻姝㈠姩浣滆繃鐚?*/
+        /* 速度设为 500 (中等速度)，防止动作过猛 */
         servo_write_pos(JOINTS[i].id, clamped, 500);
     }
 }
-/* ============ 鏍稿績绾跨▼锛?0Hz 瑙嗚杩借釜 ============ */
+/* ============ 核心线程：50Hz 视觉追踪 ============ */
 static void robot_core_task(void *arg)
 {
     vision_target_t target;
@@ -47,74 +47,74 @@ static void robot_core_task(void *arg)
     kin_joints_t    target_joints;
     int16_t         servo_cmd[SERVO_NUM_JOINTS];
 
-    /* 鏈熸湜鐨勬湯绔厱閮ㄤ刊浠拌 (寮у害)銆傚鏋滄槸娓呮磥闀滈潰锛屽彲鑳介渶瑕佷繚鎸佸埛瀛愪笌闀滈潰鍨傜洿 */
+    /* 期望的末端腕部俯仰角 (弧度)。如果是清洁镜面，可能需要保持刷子与镜面垂直 */
     float desired_psi = 0.0f;
 
     while (1) {
-        /* 1. 浠庝俊绠遍噷鈥滄媺鈥濆彇鏈€鏂扮殑瑙嗚鐩爣 */
+        /* 1. 从信箱里“拉”取最新的视觉目标 */
         bool has_target = vision_api_get_latest(&target);
 
         if (has_target && target.is_valid) {
 
-            /* 銆愰鐣欏彛瀛愩€戣繖閲屼互鍚庡彲浠ュ姞涓婃墜鐪兼爣瀹氱殑鐭╅樀骞崇Щ绠楁硶
-             * 姣斿锛?target_pos.x = target.x + 鎽勫儚澶碭杞村亸绉婚噺;
+            /* 【预留口子】这里以后可以加上手眼标定的矩阵平移算法
+             * 比如： target_pos.x = target.x + 摄像头X轴偏移量;
              */
             target_pos.x = target.x;
             target_pos.y = target.y;
             target_pos.z = target.z;
 
-            /* 2. 绌烘皵澧欐鏌ワ細鐩爣鏄惁鍦ㄦ満姊拌噦鐗╃悊鑷傚睍鑼冨洿鍐咃紵 */
+            /* 2. 空气墙检查：目标是否在机械臂物理臂展范围内？ */
             if (kin_check_workspace(&target_pos)) {
 
-                /* 3. 鏍稿績璁＄畻锛氳皟鐢ㄩ€嗚繍鍔ㄥ瑙ｇ畻鍏宠妭瑙掑害 (寮у害) */
+                /* 3. 核心计算：调用逆运动学解算关节角度 (弧度) */
                 kin_result_t ik_res = kin_inverse(&target_pos, desired_psi, &target_joints);
 
                 if (ik_res == KIN_OK) {
-                    /* 4. 鍗曚綅杞崲锛氬姬搴?-> 0-4095 鐨勮埖鏈烘鏁?*/
+                    /* 4. 单位转换：弧度 -> 0-4095 的舵机步数 */
                     servo_cmd[0] = kin_rad_to_pos(0, target_joints.j[0]);
                     servo_cmd[1] = kin_rad_to_pos(1, target_joints.j[1]);
                     servo_cmd[2] = kin_rad_to_pos(2, target_joints.j[2]);
                     servo_cmd[3] = kin_rad_to_pos(3, target_joints.j[3]);
 
-                    /* 5. 鑵曢儴缈昏浆(J5)鍜屽す鐖?J6) 鏍规嵁涓氬姟闇€姹傚崟鐙帶鍒讹紝杩欓噷鍏堜繚鎸丠ome浣?*/
+                    /* 5. 腕部翻转(J5)和夹爪(J6) 根据业务需求单独控制，这里先保持Home位 */
                     servo_cmd[4] = JOINTS[4].home_pos;
-                    servo_cmd[5] = JOINTS[5].home_pos; // 浠ュ悗濡傛灉鏄埛瀛愶紝灏卞湪杩欓噷缁欏姏
+                    servo_cmd[5] = JOINTS[5].home_pos; // 以后如果是刷子，就在这里给力
 
-                    /* 6. 鍙戦€佹寚浠ょ粰搴曞眰涓插彛椹卞姩 */
+                    /* 6. 发送指令给底层串口驱动 */
                     write_all_positions(servo_cmd);
-                } else {
+                }
+             }
+            }else {
                     ESP_LOGW(TAG, "IK Failed: Target Unreachable or Singular");
                 }
-        /* 涓ユ牸鎺у埗鍒锋柊鐜囷細20ms (50Hz) */
+        /* 严格控制刷新率：20ms (50Hz) */
         vTaskDelay(pdMS_TO_TICKS(20));
             }
         }
-    }
-}
-/* ============ 鍏叡鍒濆鍖栨帴鍙?============ */
+/* ============ 公共初始化接口 ============ */
 void robot_core_init(void)
 {
     ESP_LOGI(TAG, "Robot Core Init... Turning on torques.");
 
     int16_t home_cmd[SERVO_NUM_JOINTS];
 
-    /* 1. 寮€鍚墍鏈夎埖鏈虹殑鎵煩閿?*/
+    /* 1. 开启所有舵机的扭矩锁 */
     for (int i = 0; i < SERVO_NUM_JOINTS; i++) {
         home_cmd[i] = JOINTS[i].home_pos;
     }
 
-    /* 2. 璁╂満姊拌噦缂撴參鍥炲埌瀹夊叏鐨勯浂鐐逛綅缃?*/
+    /* 2. 让机械臂缓慢回到安全的零点位置 */
     ESP_LOGI(TAG, "Moving to HOME position...");
     write_all_positions(home_cmd);
 
-    /* 3. 绛夊緟瀹冭蛋鍒颁綅 */
+    /* 3. 等待它走到位 */
     vTaskDelay(pdMS_TO_TICKS(1500));
 }
-/* ============ 鍚姩鏍稿績杩借釜绾跨▼ ============ */
+/* ============ 启动核心追踪线程 ============ */
 void robot_core_start_task(void)
 {
-    /* 鍒涘缓 FreeRTOS 浠诲姟
-     * 鍙傛暟渚濇涓猴細浠诲姟鍑芥暟銆佷换鍔″悕绉般€佹爤绌洪棿(4096瀛楄妭闃叉诞鐐规孩鍑?銆佷紶閫掑弬鏁般€佷紭鍏堢骇銆佷换鍔″彞鏌?
+    /* 创建 FreeRTOS 任务
+     * 参数依次为：任务函数、任务名称、栈空间(4096字节防浮点溢出)、传递参数、优先级、任务句柄
      */
     xTaskCreate(robot_core_task, "robot_core_task", 4096, NULL, 5, NULL);
 }

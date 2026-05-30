@@ -29,6 +29,6 @@ bool vision_api_get_latest(vision_target_t *out_target)
     xSemaphoreTake(s_mutex, portMAX_DELAY);
     *out_target = s_mailbox;
     xSemaphoreGive(s_mutex);
-    
+
     return out_target->is_valid;
 }

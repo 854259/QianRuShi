@@ -8,7 +8,7 @@ around four independent work areas:
   ESP32-P4 port
 - robot-arm / actuator firmware that receives AI vision coordinates and drives
   servos through kinematics logic
-- project documents, hardware files, board references, and original archives
+- project documents, hardware files, and board references
 
 ## Directory layout
 
@@ -31,9 +31,12 @@ around four independent work areas:
 |   |-- smartcar_arduino_esp32/ Original ESP32 Arduino smart-car sketch
 |   |-- smartcar_espidf_p4/     Native ESP-IDF port for ESP32-P4
 |   `-- robot_arm_espidf/       AI vision robot-arm control firmware
+|-- integrated_system/
+|   |-- firmware_espidf_p4/     Integrated smart-car, vision, and robot-arm firmware
+|   `-- vision_pc_reference/    PC-side reference inference scripts
 |-- experiments/
 |   `-- esp32_idf_hello_world/  ESP-IDF hello_world experiment project
-`-- archives/               Original zip packages
+`-- tools/                  Local development environment shortcuts
 ```
 
 ## Code modules
@@ -53,5 +56,30 @@ it from an ESP-IDF shell with the instructions in its own README.
 initializes servo communication, receives AI vision data, initializes
 kinematics, and starts the tracking task.
 
+`integrated_system/firmware_espidf_p4` combines the smart-car, vision API, and
+robot-arm modules into the production ESP32-P4 firmware project.
+
 `experiments/esp32_idf_hello_world` is only a board bring-up / ESP-IDF learning
 example and should not be mixed with production firmware.
+
+## AI model and local dataset
+
+The current PC-test model is stored with Git LFS:
+
+```text
+vision/mirror_stain_detection/01_training/outputs/weights/best.pt
+```
+
+Training photos, YOLO labels, previews, build outputs, and intermediate
+checkpoints stay on the development workstation and are intentionally ignored
+by Git. This keeps the repository small while preserving the reproducible
+training and deployment code.
+
+To run the browser-based live camera test on a workstation:
+
+```powershell
+cd vision/mirror_stain_detection/04_pc_inference
+python demo_webcam_browser.py --conf 0.05
+```
+
+Then open `http://127.0.0.1:8765`.

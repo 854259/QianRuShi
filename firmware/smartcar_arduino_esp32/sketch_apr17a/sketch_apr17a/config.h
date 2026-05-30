@@ -14,7 +14,7 @@
 #define MOTO_RR_B 27
 
 // ================= 传感器引脚 =================
-#define PIN_SPEED_SENSOR 34 
+#define PIN_SPEED_SENSOR 34
 
 // 循迹模块 (5路)
 #define PIN_TRACE_1 17  // 最左
@@ -52,15 +52,15 @@
 #define TRACE_SPEED_REVERSE 150    // 反向辅助速度
 
 // ================= 避障参数 =================
-#define AVOID_DISTANCE_EMERGENCY 20   // 紧急停止距离(cm)   
-#define AVOID_DISTANCE_SLOW      35   // 减速/停车决策距离(cm) 
-#define AVOID_DISTANCE_SAFE      55   // 安全/恢复前进距离(cm) 
-#define AVOID_SPEED_NORMAL       200  // 正常行驶速度        
-#define AVOID_SPEED_SLOW         150  // 慢速/后退速度       
+#define AVOID_DISTANCE_EMERGENCY 20   // 紧急停止距离(cm)
+#define AVOID_DISTANCE_SLOW      35   // 减速/停车决策距离(cm)
+#define AVOID_DISTANCE_SAFE      55   // 安全/恢复前进距离(cm)
+#define AVOID_SPEED_NORMAL       200  // 正常行驶速度
+#define AVOID_SPEED_SLOW         150  // 慢速/后退速度
 #define AVOID_SPEED_TURN         170  // 原地转向速度（新增）
 #define AVOID_SCAN_ANGLE_LEFT    150  // 左扫描角度
 #define AVOID_SCAN_ANGLE_RIGHT   30   // 右扫描角度
-#define AVOID_SCAN_DELAY         450  // 扫描等待(ms)        
+#define AVOID_SCAN_DELAY         450  // 扫描等待(ms)
 #define AVOID_SWEEP_STEP_MS      400  // 连续扫描每步间隔(ms)（新增）
 #define AVOID_BACK_MS            900  // 后退持续时间(ms)（新增）
 

@@ -42,7 +42,7 @@ void SpeedDrive::begin() {
     }
 
     // 3. 初始化测速中断
-    pinMode(PIN_SPEED_SENSOR, INPUT); 
+    pinMode(PIN_SPEED_SENSOR, INPUT);
     pulseCount = 0;
     lastIsrTime = 0;
     currentSpeed = 0;
@@ -50,7 +50,7 @@ void SpeedDrive::begin() {
     lastSpeed = 0;
     filteredPulse = 0;
     lastCalcTime = millis();
-    
+
     attachInterruptArg(digitalPinToInterrupt(PIN_SPEED_SENSOR), isrHandler, this, RISING);
 }
 
@@ -84,10 +84,10 @@ void SpeedDrive::run(int speedL, int speedR) {
     // 限制速度范围
     speedL = constrain(speedL, -MAX_PWM, MAX_PWM);
     speedR = constrain(speedR, -MAX_PWM, MAX_PWM);
-    
+
     // 控制左侧前后轮（直接传入引脚宏，替代原通道号）
     setMotorGroup(MOTO_LF_A, MOTO_LF_B, MOTO_LR_A, MOTO_LR_B, speedL);
-    
+
     // 控制右侧前后轮
     setMotorGroup(MOTO_RF_A, MOTO_RF_B, MOTO_RR_A, MOTO_RR_B, speedR);
 }
@@ -102,7 +102,7 @@ void SpeedDrive::stop() {
     ledcWrite(MOTO_LR_B, 0);
     ledcWrite(MOTO_RR_A, 0);
     ledcWrite(MOTO_RR_B, 0);
-    
+
     // 清零速度相关变量（不变）
     currentSpeed = 0;
     smoothedSpeed = 0;
@@ -110,7 +110,7 @@ void SpeedDrive::stop() {
 
 void SpeedDrive::loop() {
     unsigned long now = millis();
-    
+
     // 按设定周期计算速度
     if (now - lastCalcTime >= SPEED_CALC_INTERVAL) {
         noInterrupts();
@@ -122,13 +122,13 @@ void SpeedDrive::loop() {
         if (raw >= MIN_PULSE_FOR_SPEED) {
             // EMA 滤波算法
             filteredPulse = (EMA_ALPHA * raw) + ((1.0 - EMA_ALPHA) * filteredPulse);
-            
+
             // 计算速度 cm/s (脉冲数 * 10 得到每秒脉冲数)
             float newSpeed = (filteredPulse * (1000.0 / SPEED_CALC_INTERVAL)) * CM_PER_PULSE;
-            
+
             // 二次平滑用于显示
             smoothedSpeed = (0.7 * newSpeed) + (0.3 * smoothedSpeed);
-            
+
             // 更新当前速度
             currentSpeed = newSpeed;
         } else {
@@ -137,17 +137,17 @@ void SpeedDrive::loop() {
             currentSpeed = filteredPulse * (1000.0 / SPEED_CALC_INTERVAL) * CM_PER_PULSE;
             smoothedSpeed *= 0.7;
         }
-        
+
         lastCalcTime = now;
     }
 }
 
-float SpeedDrive::getSpeed() { 
-    return currentSpeed; 
+float SpeedDrive::getSpeed() {
+    return currentSpeed;
 }
 
-float SpeedDrive::getSmoothedSpeed() { 
-    return smoothedSpeed; 
+float SpeedDrive::getSmoothedSpeed() {
+    return smoothedSpeed;
 }
 
 bool SpeedDrive::isSpeedStable() {

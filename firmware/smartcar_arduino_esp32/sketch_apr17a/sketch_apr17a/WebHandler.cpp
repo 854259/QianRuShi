@@ -174,7 +174,7 @@ h1 {
 <body>
 <div class="container">
   <h1>🚗 ESP32 智能小车</h1>
-  
+
   <div class="status-bar">
     <div>
       <div class="speed-display" id="speed">0.00</div>
@@ -187,13 +187,13 @@ h1 {
       </button>
     </div>
   </div>
-  
+
   <div class="card">
     <div class="chart-container">
       <canvas id="speedChart" class="chart-canvas"></canvas>
     </div>
   </div>
-  
+
   <div class="card">
     <div class="btn-group">
       <button class="btn btn-mode active" data-mode="manual" onclick="setMode('manual')">
@@ -207,7 +207,7 @@ h1 {
       </button>
     </div>
   </div>
-  
+
   <div class="card" id="manual-ctrl">
     <div class="control-pad">
       <div></div>
@@ -221,14 +221,14 @@ h1 {
       <div></div>
     </div>
   </div>
-  
+
   <div class="card">
     <div class="export-section">
       <button class="btn btn-export" onclick="copyData()">📋 复制数据</button>
       <button class="btn btn-export" onclick="exportCSV()">📊 导出CSV</button>
     </div>
   </div>
-  
+
   <div class="card">
     <h3 style="margin-bottom:10px;font-size:16px;">系统日志</h3>
     <div class="log-container" id="log"></div>
@@ -248,7 +248,7 @@ function initChart() {
   const ctx = canvas.getContext('2d');
   canvas.width = canvas.offsetWidth;
   canvas.height = canvas.offsetHeight;
-  
+
   chart = {
     canvas: canvas,
     ctx: ctx,
@@ -257,16 +257,16 @@ function initChart() {
     draw: function() {
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
       if (this.data.length < 2) return;
-      
+
       const w = this.canvas.width;
       const h = this.canvas.height;
       const padding = 20;
       const plotW = w - padding * 2;
       const plotH = h - padding * 2;
-      
+
       // 找最大值
       const maxSpeed = Math.max(...this.data, 50);
-      
+
       // 绘制网格
       this.ctx.strokeStyle = '#e0e0e0';
       this.ctx.lineWidth = 1;
@@ -277,12 +277,12 @@ function initChart() {
         this.ctx.lineTo(w - padding, y);
         this.ctx.stroke();
       }
-      
+
       // 绘制曲线
       this.ctx.strokeStyle = '#667eea';
       this.ctx.lineWidth = 2;
       this.ctx.beginPath();
-      
+
       for (let i = 0; i < this.data.length; i++) {
         const x = padding + (plotW / (this.maxPoints - 1)) * i;
         const y = h - padding - (this.data[i] / maxSpeed) * plotH;
@@ -290,7 +290,7 @@ function initChart() {
         else this.ctx.lineTo(x, y);
       }
       this.ctx.stroke();
-      
+
       // 绘制坐标轴标签
       this.ctx.fillStyle = '#666';
       this.ctx.font = '12px sans-serif';
@@ -313,13 +313,13 @@ function move(dir) {
 function setMode(mode) {
   currentMode = mode;
   fetch('/cmd?mode=' + mode);
-  
+
   // 更新UI
   document.querySelectorAll('.btn-mode').forEach(btn => {
     btn.classList.remove('active');
     if (btn.dataset.mode === mode) btn.classList.add('active');
   });
-  
+
   const modeNames = { manual: '手动模式', trace: '循迹模式', avoid: '避障模式' };
   document.getElementById('mode-display').textContent = modeNames[mode];
   document.getElementById('manual-ctrl').style.display = mode === 'manual' ? 'block' : 'none';
@@ -333,7 +333,7 @@ function addLog(msg) {
   item.textContent = `[${time}] ${msg}`;
   logDiv.appendChild(item);
   logDiv.scrollTop = logDiv.scrollHeight;
-  
+
   // 限制日志条目数量
   while (logDiv.children.length > 20) {
     logDiv.removeChild(logDiv.firstChild);
@@ -376,15 +376,15 @@ setInterval(() => {
   fetch('/data').then(r => r.json()).then(data => {
     // 更新速度显示
     document.getElementById('speed').textContent = data.speed.toFixed(2);
-    
+
     // 更新图表
     chart.addData(data.speed);
-    
+
     // 记录CSV数据
     const time = new Date().toLocaleTimeString();
     const line = "\n" + time + "," + data.speed.toFixed(2);
     document.getElementById('csv-data').value += line;
-    
+
     // 更新风扇按钮状态
     const fanBtn = document.getElementById('fan-btn');
     if (data.fan) {
@@ -392,7 +392,7 @@ setInterval(() => {
     } else {
       fanBtn.classList.remove('active');
     }
-    
+
     // 显示日志
     if (data.log) addLog(data.log);
   });
@@ -412,11 +412,11 @@ WebHandler::WebHandler() : server(80) {
     validSpeedIndex = 0;
     lastSpeedUpdate = 0;
     lastLogTime = 0;
-    
+
     for (int i = 0; i < MAX_HISTORY; i++) {
         speedHistory[i] = 0;
     }
-    
+
     for (int i = 0; i < VALID_SPEED_COUNT; i++) {
         validSpeeds[i] = 0;
     }
@@ -426,7 +426,7 @@ WebHandler::WebHandler() : server(80) {
 void WebHandler::begin(const char* ssid, const char* password) {
     apSsid = ssid;
     apPassword = password;
-    
+
     // 关闭STA模式, 启用AP模式
     WiFi.softAP(apSsid, apPassword);
 
@@ -434,16 +434,16 @@ void WebHandler::begin(const char* ssid, const char* password) {
     IPAddress apIP = WiFi.softAPIP();
     Serial.print("[AP模式] 热点IP:");
     Serial.println(apIP);
-    
+
     // 初始化风扇引脚
     pinMode(FAN_PIN, OUTPUT);  // 设置引脚为输出
     digitalWrite(FAN_PIN, LOW);  // 初始关闭（低电平）
-    
+
     server.on("/", [this](){ handleRoot(); });
     server.on("/cmd", [this](){ handleCmd(); });
     server.on("/data", [this](){ handleData(); });
     server.on("/history", [this](){ handleSpeedHistory(); });
-    
+
     server.begin();
     Serial.println("[Web] 服务器启动完成");
 }
@@ -455,22 +455,22 @@ void WebHandler::handleRoot() {
 
 void WebHandler::handleCmd() {
     bool handled = false;
-    
+
     // 模式切换
     if (server.hasArg("mode")) {
         String m = server.arg("mode");
         SysMode newMode = currentMode;
-        
+
         if (m == "manual") newMode = MODE_MANUAL;
         else if (m == "trace") newMode = MODE_TRACE;
         else if (m == "avoid") newMode = MODE_AVOID;
-        
+
         if (newMode != currentMode) {
             setMode(newMode);
             handled = true;
         }
     }
-    
+
     // 风扇控制
     if (server.hasArg("fan")) {
         String cmd = server.arg("fan");
@@ -479,11 +479,11 @@ void WebHandler::handleCmd() {
             handled = true;
         }
     }
-    
+
     // 手动控制命令（仅在手动模式下有效）
     if (server.hasArg("go") && currentMode == MODE_MANUAL) {
         String cmd = server.arg("go");
-        
+
         if (cmd == "f") {
             CarDrive.run(255, 255);
             addLog("前进");
@@ -502,25 +502,25 @@ void WebHandler::handleCmd() {
         }
         handled = true;
     }
-    
+
     server.send(200, "text/plain", handled ? "OK" : "IGNORED");
 }
 
 void WebHandler::handleData() {
     float speed = CarDrive.getSmoothedSpeed();
-    
+
     // 更新速度历史
     updateSpeedHistory(speed);
-    
+
     // 更新有效速度记录
     updateValidSpeed(speed);
-    
+
     // 构建JSON响应
     String json = "{";
     json += "\"speed\":" + String(speed, 2);
     json += ",\"stable\":" + String(CarDrive.isSpeedStable() ? "true" : "false");
     json += ",\"fan\":" + String(fanState ? "true" : "false");
-    
+
     // 添加最近5次有效速度
     json += ",\"validSpeeds\":[";
     for (int i = 0; i < VALID_SPEED_COUNT; i++) {
@@ -528,15 +528,15 @@ void WebHandler::handleData() {
         json += String(validSpeeds[i], 2);
     }
     json += "]";
-    
+
     // 添加日志
     if (logBuffer.length() > 0) {
         json += ",\"log\":\"" + logBuffer + "\"";
         logBuffer = "";
     }
-    
+
     json += "}";
-    
+
     server.send(200, "application/json", json);
 }
 
@@ -547,7 +547,7 @@ void WebHandler::handleSpeedHistory() {
         json += String(speedHistory[i], 2);
     }
     json += "]";
-    
+
     server.send(200, "application/json", json);
 }
 
@@ -571,7 +571,7 @@ void WebHandler::updateValidSpeed(float speed) {
 void WebHandler::setFanState(bool state) {
     fanState = state;
     digitalWrite(FAN_PIN, fanState ? HIGH : LOW);  // 高电平开启，低电平关闭
-    
+
     String msg = fanState ? "风扇已开启" : "风扇已关闭";
     addLog(msg);
     Serial.println("[风扇] " + msg);
@@ -597,9 +597,9 @@ void WebHandler::setMode(SysMode mode) {
     if (mode != currentMode) {
         // 停止当前模式
         CarDrive.stop();
-        
+
         currentMode = mode;
-        
+
         String modeName[] = {"手动", "循迹", "避障"};
         addLog("切换到" + modeName[mode] + "模式");
         Serial.println("[模式] 切换到 " + modeName[mode] + " 模式");

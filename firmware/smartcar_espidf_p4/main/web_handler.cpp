@@ -1,4 +1,4 @@
-#include "web_handler.hpp"
+﻿#include "web_handler.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -41,10 +41,10 @@ ol{margin:0;padding-left:22px}@media(max-width:540px){.modes,.tools{grid-templat
 </style>
 </head>
 <body><main>
-<header><h1>ESP32-P4 Smart Car</h1><button id="fan" onclick="toggleFan()">Fan</button></header>
+<header><h1>ESP32-P4 Smart Car</h1></header>
 <section class="status"><div><div class="speed"><span id="speed">0.00</span></div><div class="unit">cm/s</div></div><div class="mode" id="mode">Manual</div><div id="stable">Stable</div></section>
 <section><canvas id="chart"></canvas></section>
-<section class="grid modes"><button data-mode="manual" class="active" onclick="setMode('manual')">Manual</button><button data-mode="trace" onclick="setMode('trace')">Trace</button><button data-mode="avoid" onclick="setMode('avoid')">Avoid</button></section>
+<section class="grid modes"><button data-mode="manual" class="active" onclick="setMode('manual')">Manual</button><button data-mode="avoid" onclick="setMode('avoid')">Avoid</button></section>
 <section id="manual" class="grid pad"><i></i><button onpointerdown="move('f')" onpointerup="move('s')" onpointercancel="move('s')">&#9650;</button><i></i><button onpointerdown="move('l')" onpointerup="move('s')" onpointercancel="move('s')">&#9664;</button><button class="stop" onclick="move('s')">Stop</button><button onpointerdown="move('r')" onpointerup="move('s')" onpointercancel="move('s')">&#9654;</button><i></i><button onpointerdown="move('b')" onpointerup="move('s')" onpointercancel="move('s')">&#9660;</button><i></i></section>
 <section class="grid tools"><button onclick="copySpeeds()">Copy recent speeds</button><button onclick="downloadCsv()">Export CSV</button><button onclick="move('s')">Stop motors</button></section>
 <section><h2>Recent valid speeds</h2><ol id="recent"></ol></section>
@@ -55,12 +55,11 @@ function fit(){chart.width=chart.clientWidth*devicePixelRatio;chart.height=chart
 function q(path){return fetch(path).then(r=>r.json ? r : r)}
 function move(go){fetch('/cmd?go='+go)}
 function setMode(mode){fetch('/cmd?mode='+mode);document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));document.getElementById('manual').style.display=mode==='manual'?'grid':'none';document.getElementById('mode').textContent=mode[0].toUpperCase()+mode.slice(1)}
-function toggleFan(){fetch('/cmd?fan=toggle')}
 function log(text){const box=document.getElementById('log');box.textContent+='['+new Date().toLocaleTimeString()+'] '+text+'\n';box.scrollTop=box.scrollHeight}
 function draw(){ctx.clearRect(0,0,chart.width,chart.height);const pad=20*devicePixelRatio,w=chart.width-pad*2,h=chart.height-pad*2,m=Math.max(50,...samples);ctx.strokeStyle='#b8cbd7';for(let i=0;i<5;i++){const y=pad+h*i/4;ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(pad+w,y);ctx.stroke()}ctx.strokeStyle='#1f8a70';ctx.lineWidth=2*devicePixelRatio;ctx.beginPath();samples.forEach((v,i)=>{const x=pad+w*i/49,y=pad+h-(v/m*h);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke()}
 function copySpeeds(){navigator.clipboard.writeText([...document.querySelectorAll('#recent li')].map(x=>x.textContent).join('\n')).then(()=>log('Recent speeds copied'))}
 function downloadCsv(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv.join('\n')],{type:'text/csv'}));a.download='smartcar_speed.csv';a.click();URL.revokeObjectURL(a.href);log('CSV exported')}
-setInterval(()=>fetch('/data').then(r=>r.json()).then(data=>{document.getElementById('speed').textContent=data.speed.toFixed(2);document.getElementById('stable').textContent=data.stable?'Stable':'Changing';document.getElementById('fan').classList.toggle('active',data.fan);samples.push(data.speed);if(samples.length>50)samples.shift();csv.push(new Date().toLocaleTimeString()+','+data.speed.toFixed(2));document.getElementById('recent').innerHTML=data.validSpeeds.map(v=>'<li>'+v.toFixed(2)+' cm/s</li>').join('');if(data.log)log(data.log);draw()}),500);
+setInterval(()=>fetch('/data').then(r=>r.json()).then(data=>{document.getElementById('speed').textContent=data.speed.toFixed(2);document.getElementById('stable').textContent=data.stable?'Stable':'Changing';samples.push(data.speed);if(samples.length>50)samples.shift();csv.push(new Date().toLocaleTimeString()+','+data.speed.toFixed(2));document.getElementById('recent').innerHTML=data.validSpeeds.map(v=>'<li>'+v.toFixed(2)+' cm/s</li>').join('');if(data.log)log(data.log);draw()}),500);
 fit();
 </script></body></html>)HTML";
 
@@ -124,18 +123,6 @@ WebHandler WebSys;
 
 void WebHandler::begin(const char *ssid, const char *password)
 {
-    const gpio_config_t fan_config = {
-        .pin_bit_mask = 1ULL << SMARTCAR_FAN_GPIO,
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE,
-#if SOC_GPIO_SUPPORT_PIN_HYS_FILTER
-        .hys_ctrl_mode = GPIO_HYS_SOFT_DISABLE,
-#endif
-    };
-    ESP_ERROR_CHECK(gpio_config(&fan_config));
-    set_fan(false);
     start_soft_ap(ssid, password);
     start_http_server();
 }
@@ -239,19 +226,12 @@ esp_err_t WebHandler::handle_command(httpd_req_t *request)
         if (std::strcmp(value, "manual") == 0) {
             set_mode(SystemMode::kManual);
             handled = true;
-        } else if (std::strcmp(value, "trace") == 0) {
-            set_mode(SystemMode::kTrace);
-            handled = true;
         } else if (std::strcmp(value, "avoid") == 0) {
             set_mode(SystemMode::kAvoid);
             handled = true;
         }
     }
 
-    if (query_value(request, "fan", value, sizeof(value)) && std::strcmp(value, "toggle") == 0) {
-        set_fan(!fan_enabled());
-        handled = true;
-    }
 
     if (query_value(request, "go", value, sizeof(value)) && mode() == SystemMode::kManual) {
         if (std::strcmp(value, "f") == 0) {
@@ -302,7 +282,6 @@ esp_err_t WebHandler::handle_data(httpd_req_t *request)
     std::ostringstream response;
     response << "{\"speed\":" << speed
              << ",\"stable\":" << (CarDrive.speed_stable() ? "true" : "false")
-             << ",\"fan\":" << (fan_enabled() ? "true" : "false")
              << ",\"validSpeeds\":[";
 
     {
@@ -360,9 +339,6 @@ void WebHandler::run_mode_iteration()
     switch (mode()) {
     case SystemMode::kManual:
         break;
-    case SystemMode::kTrace:
-        Tracer.run();
-        break;
     case SystemMode::kAvoid:
         Avoider.run();
         break;
@@ -377,7 +353,6 @@ void WebHandler::set_mode(SystemMode new_mode)
     }
 
     CarDrive.stop();
-    Tracer.stop();
     Avoider.stop();
     mode_.store(new_mode);
 
@@ -385,26 +360,12 @@ void WebHandler::set_mode(SystemMode new_mode)
     case SystemMode::kManual:
         add_log("Manual mode");
         break;
-    case SystemMode::kTrace:
-        add_log("Trace mode");
-        break;
     case SystemMode::kAvoid:
         add_log("Avoid mode");
         break;
     }
 }
 
-void WebHandler::set_fan(bool enabled)
-{
-    fan_enabled_.store(enabled);
-    ESP_ERROR_CHECK(gpio_set_level(SMARTCAR_FAN_GPIO, enabled ? 1 : 0));
-    add_log(enabled ? "Fan on" : "Fan off");
-}
-
-bool WebHandler::fan_enabled() const
-{
-    return fan_enabled_.load();
-}
 
 void WebHandler::add_log(const std::string &message)
 {

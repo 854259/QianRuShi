@@ -1,4 +1,4 @@
-#include "avoid_control.hpp"
+﻿#include "avoid_control.hpp"
 #include "car_config.hpp"
 #include "driver/gpio.h"
 #include "esp_check.h"
@@ -13,28 +13,43 @@
 namespace {
 constexpr char TAG[] = "smartcar_app";
 
-void blink_status_led()
+uint64_t gpio_pin_mask(gpio_num_t gpio)
 {
-    if (SMARTCAR_STATUS_LED_GPIO == GPIO_NUM_NC) {
-        return;
+    return gpio == GPIO_NUM_NC ? 0ULL : (1ULL << static_cast<uint32_t>(gpio));
+}
+
+void init_optional_power_outputs()
+{
+    if (SMARTCAR_VLT_ENABLE_GPIO == GPIO_NUM_NC) {
+        ESP_LOGW(TAG, "VLT enable pin is not assigned; hardware must tie VLT to 3.3 V");
+    } else {
+        const gpio_config_t vlt_config = {
+            .pin_bit_mask = gpio_pin_mask(SMARTCAR_VLT_ENABLE_GPIO),
+            .mode = GPIO_MODE_OUTPUT,
+            .pull_up_en = GPIO_PULLUP_DISABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_DISABLE,
+#if SOC_GPIO_SUPPORT_PIN_HYS_FILTER
+            .hys_ctrl_mode = GPIO_HYS_SOFT_DISABLE,
+#endif
+        };
+        ESP_ERROR_CHECK(gpio_config(&vlt_config));
+        ESP_ERROR_CHECK(gpio_set_level(SMARTCAR_VLT_ENABLE_GPIO, 1));
     }
 
-    const gpio_config_t led_config = {
-        .pin_bit_mask = 1ULL << SMARTCAR_STATUS_LED_GPIO,
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE,
+    if (SMARTCAR_SB_PLUS_GPIO != GPIO_NUM_NC) {
+        const gpio_config_t sb_config = {
+            .pin_bit_mask = gpio_pin_mask(SMARTCAR_SB_PLUS_GPIO),
+            .mode = GPIO_MODE_OUTPUT,
+            .pull_up_en = GPIO_PULLUP_DISABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_DISABLE,
 #if SOC_GPIO_SUPPORT_PIN_HYS_FILTER
-        .hys_ctrl_mode = GPIO_HYS_SOFT_DISABLE,
+            .hys_ctrl_mode = GPIO_HYS_SOFT_DISABLE,
 #endif
-    };
-    ESP_ERROR_CHECK(gpio_config(&led_config));
-    for (int count = 0; count < 3; ++count) {
-        gpio_set_level(SMARTCAR_STATUS_LED_GPIO, 1);
-        smartcar_delay_ms(150);
-        gpio_set_level(SMARTCAR_STATUS_LED_GPIO, 0);
-        smartcar_delay_ms(150);
+        };
+        ESP_ERROR_CHECK(gpio_config(&sb_config));
+        ESP_ERROR_CHECK(gpio_set_level(SMARTCAR_SB_PLUS_GPIO, 0));
     }
 }
 }
@@ -49,18 +64,20 @@ extern "C" void app_main()
     ESP_ERROR_CHECK(nvs_result);
 
     ESP_LOGI(TAG, "starting native ESP-IDF smart car port");
+    init_optional_power_outputs();
     CarDrive.begin();
     Tracer.begin();
     Avoider.begin();
     WebSys.begin(SMARTCAR_AP_SSID, SMARTCAR_AP_PASSWORD);
     CarDrive.stop();
-    blink_status_led();
 
     uint32_t last_status_ms = 0;
     while (true) {
         CarDrive.loop();
 
-        WebSys.run_mode_iteration();
+        if (!Tracer.guard()) {
+            WebSys.run_mode_iteration();
+        }
 
         const uint32_t now = smartcar_millis();
         if (now - last_status_ms >= 2000) {

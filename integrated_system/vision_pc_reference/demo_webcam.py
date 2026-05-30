@@ -1,12 +1,15 @@
-﻿"""
-鎽勫儚澶村疄鏃舵娴嬫紨绀猴紙鍙€夛級
+"""
+摄像头实时检测演示（可选）
 
-鐢ㄩ€旓細鐢ㄧ數鑴戞憚鍍忓ご瀵瑰噯闀滃瓙瀹炴椂娴嬭瘯妫€娴嬫晥鏋滐紝蹇€熼獙璇佹ā鍨嬫槸鍚︽甯稿伐浣溿€?娉ㄦ剰锛氭憚鍍忓ご鐗堟湰浠呯敤浜庢紨绀猴紝鏈€缁堥儴缃插埌 ESP32-P4 鏃朵娇鐢ㄦ憚鍍忓ご妯″潡銆?
-鐢ㄦ硶:
+用途：用电脑摄像头对准镜子实时测试检测效果，快速验证模型是否正常工作。
+注意：摄像头版本仅用于演示，最终部署到 ESP32-P4 时使用摄像头模块。
+
+用法:
     cd 04_pc_inference
     python demo_webcam.py
-    python demo_webcam.py --camera 1  # 浣跨敤绗?2 涓憚鍍忓ご
-    鎸?Q 閫€鍑?"""
+    python demo_webcam.py --camera 1  # 使用第 2 个摄像头
+    按 Q 退出
+"""
 
 import sys
 import argparse
@@ -121,8 +124,8 @@ def main():
     args = p.parse_args()
 
     if not Path(args.model).exists():
-        print(f'[Error] 妯″瀷鏂囦欢涓嶅瓨鍦? {args.model}')
-        print('璇峰厛瀹屾垚浠诲姟涓夌殑閲忓寲姝ラ銆?)
+        print(f'[Error] 模型文件不存在: {args.model}')
+        print('请先完成任务三的量化步骤。')
         return
 
     sess = ort.InferenceSession(args.model, providers=['CPUExecutionProvider'])
@@ -130,10 +133,10 @@ def main():
 
     cap = cv2.VideoCapture(args.camera)
     if not cap.isOpened():
-        print(f'[Error] 鏃犳硶鎵撳紑鎽勫儚澶?{args.camera}')
+        print(f'[Error] 无法打开摄像头 {args.camera}')
         return
 
-    print(f'[鎽勫儚澶存紨绀篯 鎸?Q 閫€鍑? 妯″瀷: {args.model}')
+    print(f'[摄像头演示] 按 Q 退出  模型: {args.model}')
 
     import time
     fps_list = []

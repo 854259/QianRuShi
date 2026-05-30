@@ -11,7 +11,7 @@ public:
     // 电机控制
     void stop();
     void run(int speedL, int speedR);
-    
+
     // 速度获取
     float getSpeed();              // 获取当前速度 cm/s
     float getSmoothedSpeed();      // 获取平滑后的速度（用于显示）

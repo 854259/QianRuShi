@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <array>
 #include <atomic>
@@ -11,7 +11,6 @@
 
 enum class SystemMode {
     kManual,
-    kTrace,
     kAvoid,
 };
 
@@ -21,8 +20,6 @@ public:
     SystemMode mode() const;
     void run_mode_iteration();
     void set_mode(SystemMode mode);
-    void set_fan(bool enabled);
-    bool fan_enabled() const;
     void add_log(const std::string &message);
 
 private:
@@ -45,7 +42,6 @@ private:
 
     httpd_handle_t server_ = nullptr;
     std::atomic<SystemMode> mode_{SystemMode::kManual};
-    std::atomic<bool> fan_enabled_{false};
     std::array<float, kHistorySize> speed_history_{};
     std::array<float, kValidSpeedSize> valid_speeds_{};
     size_t history_index_ = 0;

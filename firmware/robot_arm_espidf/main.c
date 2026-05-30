@@ -7,6 +7,41 @@
 #include "robot_core.h"
 #include "kinematics.h"
 static const char *TAG = "MAIN";
+#include <string.h>
+
+/* ============ 串口调试模拟 AI 任务 ============ */
+static void pc_command_task(void *arg)
+{
+    char rx_buf[128];
+    ESP_LOGI("PC_CMD", "========================================");
+    ESP_LOGI("PC_CMD", "PC Simulator Ready!");
+    ESP_LOGI("PC_CMD", "Please input data in format: X Y Z V");
+    ESP_LOGI("PC_CMD", "Example: 200 0 150 1  (V=1 means valid)");
+    ESP_LOGI("PC_CMD", "========================================");
+
+    while (1) {
+        /* fgets 会阻塞等待串口输入（以回车 \n 结尾） */
+        if (fgets(rx_buf, sizeof(rx_buf), stdin) != NULL) {
+            vision_target_t target;
+            int valid_flag = 0;
+
+            /* 利用 sscanf 解析空格分隔的四个数字 */
+            if (sscanf(rx_buf, "%f %f %f %d", &target.x, &target.y, &target.z, &valid_flag) == 4) {
+                target.is_valid = (valid_flag != 0);
+
+                /* 写入信箱 */
+                vision_api_set_latest(&target);
+
+                ESP_LOGI("PC_CMD", "=> [Mock AI] Injected: X=%.1f, Y=%.1f, Z=%.1f, Valid=%d",
+                         target.x, target.y, target.z, target.is_valid);
+            } else {
+                ESP_LOGE("PC_CMD", "Invalid format! Use: X Y Z V");
+            }
+        }
+        /* 稍微让出 CPU */
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}
 void app_main(void)
 {
     ESP_LOGI(TAG, "=== AI Vision Robot Arm Starting ===");
@@ -14,7 +49,7 @@ void app_main(void)
     /* ---------------------------------------------------------
      * 1. 硬件外设初始化层 (底层)
      * ---------------------------------------------------------*/
-    
+
     /* 1.1 初始化舵机 UART 通信 (保留原代码) */
     ESP_LOGI(TAG, "Initializing servos...");
     servo_init();
@@ -27,7 +62,7 @@ void app_main(void)
     /* ---------------------------------------------------------
      * 2. 算法与逻辑状态初始化层 (中层)
      * ---------------------------------------------------------*/
-    
+
     /* 2.1 初始化运动学参数 (保留原代码) */
     /* 这里会加载 kinematics.h 里的 DH 参数，并打印最大臂展 */
     ESP_LOGI(TAG, "Initializing kinematics...");
@@ -40,7 +75,7 @@ void app_main(void)
     /* ---------------------------------------------------------
      * 3. 启动实时操作系统任务 (顶层)
      * ---------------------------------------------------------*/
-    
+
     /* 3.1 【重写】启动核心追踪线程 */
     /* 启动一个 50Hz (20ms) 的死循环任务：拿视觉坐标 -> 算逆运动学 -> 驱动舵机 */
     ESP_LOGI(TAG, "Starting main tracking task...");
@@ -49,3 +84,5 @@ void app_main(void)
     ESP_LOGI(TAG, "========================================");
     ESP_LOGI(TAG, "System Ready! Waiting for AI camera data...");
     ESP_LOGI(TAG, "========================================");
+    /* 3.2 启动电脑串口监听任务 */
+    xTaskCreate(pc_command_task, "pc_cmd_task", 4096, NULL, 4, NULL);

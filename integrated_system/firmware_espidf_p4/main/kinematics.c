@@ -1,25 +1,26 @@
-﻿#include "kinematics.h"
+#include "kinematics.h"
 #include "esp_log.h"
 #include <math.h>
 
 static const char *TAG = "KIN";
 
-/* Home 浣嶇疆 (鑸垫満鍊? 鈥?涓?robot.c 涓?JOINTS[] 涓€鑷?*/
+/* Home 位置 (舵机值) — 与 robot.c 中 JOINTS[] 一致 */
 static const int16_t HOME_POS[5] = { 1500, 1500, 1500, 1500, 1500 };
 
-/* 鑸垫満瀹夎姝ｅ弽鍚戣ˉ鍋?(鏋佸叾閲嶈锛佸鏋滆鍙嶄簡锛屾妸瀵瑰簲鐨?1.0f 鏀逛负 -1.0f) */
+/* 舵机安装正反向补偿 (极其重要！如果装反了，把对应的 1.0f 改为 -1.0f) */
 static const float JOINT_DIR[5] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 
-/* MG996 鐗╃悊鏋侀檺 (500us ~ 2500us 瀵瑰簲 -90掳 ~ +90掳) */
+/* MG996 物理极限 (500us ~ 2500us 对应 -90° ~ +90°) */
 #define MG996_MIN_PWM 500
 #define MG996_MAX_PWM 2500
 
-/* * 鏄犲皠姣斾緥鎺ㄥ锛? * 2000 涓?PWM 鍗曚綅 (2500 - 500) 瀵瑰簲 180搴?(鍗?PI 寮у害)
+/* * 映射比例推导：
+ * 2000 个 PWM 单位 (2500 - 500) 对应 180度 (即 PI 弧度)
  */
 #define POS_TO_RAD  (M_PI / 2000.0f)
 #define RAD_TO_POS  (2000.0f / M_PI)
 
-/* 宸ヤ綔绌洪棿闄愬埗 (mm) */
+/* 工作空间限制 (mm) */
 #define WS_MAX_REACH  (KIN_A2 + KIN_A3 + KIN_D5)  /* ~290mm */
 #define WS_MIN_REACH  150.0f
 #define WS_Z_MIN     -50.0f
@@ -35,17 +36,17 @@ void kin_init(void)
 float kin_pos_to_rad(int idx, int16_t pos)
 {
     if (idx < 0 || idx > 4) return 0.0f;
-   /* 瑙掑害 = (褰撳墠鑴夊 - 涓綅1500) * 寮у害姣斾緥 * 姝ｅ弽鍚戠郴鏁?*/
+   /* 角度 = (当前脉宽 - 中位1500) * 弧度比例 * 正反向系数 */
     return (float)(pos - HOME_POS[idx]) * POS_TO_RAD * JOINT_DIR[idx];
 }
 
 int16_t kin_rad_to_pos(int idx, float rad)
 {
     if (idx < 0 || idx > 4) return HOME_POS[0];
-    /* 鑴夊 = 涓綅1500 + (寮у害 * 鑴夊姣斾緥 * 姝ｅ弽鍚戠郴鏁? */
+    /* 脉宽 = 中位1500 + (弧度 * 脉宽比例 * 正反向系数) */
     int32_t pos = HOME_POS[idx] + (int32_t)roundf(rad * RAD_TO_POS * JOINT_DIR[idx]);
 
-    /* 閽堝 MG996 鐨勯槻鎾為挸浣嶄繚鎶?*/
+    /* 针对 MG996 的防撞钳位保护 */
     if (pos < MG996_MIN_PWM) pos = MG996_MIN_PWM;
     if (pos > MG996_MAX_PWM) pos = MG996_MAX_PWM;
     return (int16_t)pos;
@@ -53,15 +54,15 @@ int16_t kin_rad_to_pos(int idx, float rad)
 
 void kin_forward(const kin_joints_t *joints, kin_pos_t *out_pos, float *out_psi)
 {
-    float t1 = joints->j[0];  /* J1: 搴曞骇鏃嬭浆 */
-    float t2 = joints->j[1];  /* J2: 鑲╅儴 */
-    float t3 = joints->j[2];  /* J3: 鑲橀儴 */
-    float t4 = joints->j[3];  /* J4: 鑵曢儴淇话 */
-    /* J5: 鑵曢儴缈昏浆, 涓嶅奖鍝嶄綅缃?*/
+    float t1 = joints->j[0];  /* J1: 底座旋转 */
+    float t2 = joints->j[1];  /* J2: 肩部 */
+    float t3 = joints->j[2];  /* J3: 肘部 */
+    float t4 = joints->j[3];  /* J4: 腕部俯仰 */
+    /* J5: 腕部翻转, 不影响位置 */
 
     float c1 = cosf(t1), s1 = sinf(t1);
 
-    /* 骞抽潰鍐呯殑鎶曞奖璺濈鍜岄珮搴?*/
+    /* 平面内的投影距离和高度 */
     float t23  = t2 + t3;
     float t234 = t23 + t4;
 
@@ -73,7 +74,7 @@ void kin_forward(const kin_joints_t *joints, kin_pos_t *out_pos, float *out_psi)
     out_pos->z = z;
 
     if (out_psi) {
-        *out_psi = t234;  /* 鑵曢儴鎬讳刊浠拌 */
+        *out_psi = t234;  /* 腕部总俯仰角 */
     }
 }
 
@@ -83,25 +84,25 @@ kin_result_t kin_inverse(const kin_pos_t *target, float psi, kin_joints_t *out_j
     float y = target->y;
     float z = target->z;
 
-    /* === J1: 搴曞骇鏃嬭浆 === */
+    /* === J1: 底座旋转 === */
     float r_xy = sqrtf(x * x + y * y);
     float t1;
     if (r_xy < 1.0f) {
-        /* 澶潬杩?Z 杞? J1 涓嶇‘瀹?鈫?淇濇寔褰撳墠鍊?*/
+        /* 太靠近 Z 轴, J1 不确定 → 保持当前值 */
         t1 = out_joints->j[0];
     } else {
         t1 = atan2f(y, x);
     }
 
-    /* === 鍘婚櫎 d5 鐨勮础鐚? 姹傝厱蹇?=== */
+    /* === 去除 d5 的贡献, 求腕心 === */
     float r  = r_xy - KIN_D5 * cosf(psi);
     float wz = z - KIN_D1 - KIN_D5 * sinf(psi);
 
-    /* === J2, J3: 浜岃繛鏉?IK (浣欏鸡瀹氱悊) === */
+    /* === J2, J3: 二连杆 IK (余弦定理) === */
     float D_sq = r * r + wz * wz;
     float D = sqrtf(D_sq);
 
-    /* 鍙揪鎬ф鏌?*/
+    /* 可达性检查 */
     if (D > (KIN_A2 + KIN_A3 - 0.1f)) {
         return KIN_UNREACHABLE;
     }
@@ -111,21 +112,21 @@ kin_result_t kin_inverse(const kin_pos_t *target, float psi, kin_joints_t *out_j
 
     float cos_t3 = (D_sq - KIN_A2 * KIN_A2 - KIN_A3 * KIN_A3) / (2.0f * KIN_A2 * KIN_A3);
 
-    /* 鏁板€奸挸浣嶉槻姝?acos 瓒婄晫 */
+    /* 数值钳位防止 acos 越界 */
     if (cos_t3 > 1.0f) cos_t3 = 1.0f;
     if (cos_t3 < -1.0f) cos_t3 = -1.0f;
 
-    /* 鍙栬倶涓婅В (elbow-up) */
+    /* 取肘上解 (elbow-up) */
     float t3 = atan2f(sqrtf(1.0f - cos_t3 * cos_t3), cos_t3);
 
     float alpha = atan2f(wz, r);
     float beta  = atan2f(KIN_A3 * sinf(t3), KIN_A2 + KIN_A3 * cos_t3);
     float t2 = alpha - beta;
 
-    /* === J4: 鑵曢儴淇话琛ュ伩 === */
+    /* === J4: 腕部俯仰补偿 === */
     float t4 = psi - t2 - t3;
 
-    /* === 濂囧紓鎬ф鏌?=== */
+    /* === 奇异性检查 === */
     if (fabsf(cos_t3) > 0.98f) {
         return KIN_SINGULAR;
     }
@@ -134,7 +135,7 @@ kin_result_t kin_inverse(const kin_pos_t *target, float psi, kin_joints_t *out_j
     out_joints->j[1] = t2;
     out_joints->j[2] = t3;
     out_joints->j[3] = t4;
-    /* j[4] (J5) 涓嶇敱浣嶇疆 IK 鎺у埗 */
+    /* j[4] (J5) 不由位置 IK 控制 */
 
     return KIN_OK;
 }

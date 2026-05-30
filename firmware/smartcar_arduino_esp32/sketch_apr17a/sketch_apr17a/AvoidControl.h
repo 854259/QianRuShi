@@ -16,7 +16,7 @@ private:
     int  currentServoAngle;
     bool lastTurnLeft;  // 记录上次决策的转向方向，供 handleTurning 持续使用
 
-    // ── 连续扫描状态机 
+    // ── 连续扫描状态机
     // 舵机扫描序列：右(30°) → 中(90°) → 左(150°) → 中(90°) → 循环
     static const int SWEEP_ANGLES[4];   // 扫描角度序列
     int  sweepStep;                     // 当前序列位置 0-3
@@ -27,7 +27,7 @@ private:
     int distCenter;   // 90°  方向距离
     int distRight;    // 30°  方向距离
 
-    // ── 主行为状态机 
+    // ── 主行为状态机
     enum AvoidState {
         STATE_FORWARD,   // 正常前进（舵机同时扫描）
         STATE_TURNING,   // 差速/原地转向
@@ -40,7 +40,7 @@ private:
     // 记录上次选择的转向方向，避免来回摇摆
     int lastTurnDir;  // +1=右 -1=左 0=未定
 
-    // ── 私有方法 
+    // ── 私有方法
     void servoWrite(int angle);
     int  getDistance();
 

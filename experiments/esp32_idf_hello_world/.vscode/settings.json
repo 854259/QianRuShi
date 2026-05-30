@@ -4,7 +4,7 @@
   "clangd.arguments": [
     "--background-index",
     "--query-driver=**",
-    "--compile-commands-dir=e:\\qianrushi\\ESP32_try\\build"
+    "--compile-commands-dir=${workspaceFolder}/hello_world/build"
   ],
   "idf.openOcdConfigs": [
     "board/esp32p4-builtin.cfg"

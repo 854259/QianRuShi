@@ -1,14 +1,14 @@
-﻿#include "vision_api.h"
+#include "vision_api.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "esp_log.h"
 
 static const char *TAG = "VISION_API";
 
-/* 鍏ㄥ眬淇＄鍙橀噺 */
+/* 全局信箱变量 */
 static vision_target_t s_mailbox = {0};
 
-/* 淇濇姢淇＄鐨勪簰鏂ラ攣 */
+/* 保护信箱的互斥锁 */
 static SemaphoreHandle_t s_mutex = NULL;
 
 void vision_api_init(void)
@@ -18,39 +18,17 @@ void vision_api_init(void)
         ESP_LOGI(TAG, "Vision API mailbox initialized.");
     }
 }
-/* 浣犱笓鐢ㄧ殑璇诲彇鍑芥暟 */
+/* 你专用的读取函数 */
 bool vision_api_get_latest(vision_target_t *out_target)
 {
     if (s_mutex == NULL || out_target == NULL) {
         return false;
     }
 
-    /* 涓婇攣锛屽畨鍏ㄥ湴鎶婃暟鎹嫹璐濆埌浣犵殑灞€閮ㄥ彉閲忛噷 */
+    /* 上锁，安全地把数据拷贝到你的局部变量里 */
     xSemaphoreTake(s_mutex, portMAX_DELAY);
     *out_target = s_mailbox;
     xSemaphoreGive(s_mutex);
 
     return out_target->is_valid;
-}
-
-void vision_api_publish_target(const vision_target_t *target)
-{
-    if (s_mutex == NULL || target == NULL) {
-        return;
-    }
-
-    xSemaphoreTake(s_mutex, portMAX_DELAY);
-    s_mailbox = *target;
-    xSemaphoreGive(s_mutex);
-}
-
-void vision_api_clear_target(void)
-{
-    if (s_mutex == NULL) {
-        return;
-    }
-
-    xSemaphoreTake(s_mutex, portMAX_DELAY);
-    s_mailbox.is_valid = false;
-    xSemaphoreGive(s_mutex);
 }
